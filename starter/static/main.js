@@ -7,6 +7,7 @@ let timerInterval = null;
 let elapsedSeconds = 0;
 let isSolved = false;
 let currentDifficulty = 'easy';
+let hintsUsed = 0;
 
 function formatTime(totalSeconds) {
   const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
@@ -47,14 +48,26 @@ function resetTimer() {
 function getLeaderboard() {
   try {
     const stored = localStorage.getItem(LEADERBOARD_KEY);
-    return stored ? JSON.parse(stored) : [];
+    if (!stored) {
+      return [];
+    }
+
+    const parsed = JSON.parse(stored);
+    return parsed.map((entry) => ({
+      ...entry,
+      hintsUsed: typeof entry.hintsUsed === 'number' ? entry.hintsUsed : 0
+    }));
   } catch (error) {
     return [];
   }
 }
 
 function saveLeaderboard(entries) {
-  localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(entries));
+  const normalizedEntries = entries.map((entry) => ({
+    ...entry,
+    hintsUsed: typeof entry.hintsUsed === 'number' ? entry.hintsUsed : 0
+  }));
+  localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(normalizedEntries));
 }
 
 function renderLeaderboard() {
@@ -72,14 +85,15 @@ function renderLeaderboard() {
   list.innerHTML = scores
     .map((entry, index) => {
       const timeText = `${String(Math.floor(entry.time / 60)).padStart(2, '0')}:${String(entry.time % 60).padStart(2, '0')}`;
-      return `<li>#${index + 1} ${entry.name} — ${timeText} — ${entry.difficulty}</li>`;
+      const hints = typeof entry.hintsUsed === 'number' ? entry.hintsUsed : 0;
+      return `<li>#${index + 1} ${entry.name} — ${timeText} — ${entry.difficulty} — Hints: ${hints}</li>`;
     })
     .join('');
 }
 
 function addScoreToLeaderboard(name, time, difficulty) {
   const scores = getLeaderboard();
-  scores.push({ name, time, difficulty });
+  scores.push({ name, time, difficulty, hintsUsed });
   scores.sort((a, b) => a.time - b.time);
   saveLeaderboard(scores.slice(0, 10));
   renderLeaderboard();
@@ -122,6 +136,71 @@ function toggleTheme() {
   applyTheme(nextTheme);
 }
 
+function updateInputValidation(input) {
+  if (!input || input.disabled) {
+    input?.classList.remove('incorrect');
+    return;
+  }
+
+  const value = input.value;
+  if (!value) {
+    input.classList.remove('incorrect');
+    return;
+  }
+
+  const row = Number(input.dataset.row);
+  const col = Number(input.dataset.col);
+  const candidate = Number(value);
+  const boardDiv = document.getElementById('sudoku-board');
+  const inputs = boardDiv.getElementsByTagName('input');
+  const board = [];
+
+  for (let i = 0; i < SIZE; i++) {
+    board[i] = [];
+    for (let j = 0; j < SIZE; j++) {
+      const idx = i * SIZE + j;
+      const currentValue = inputs[idx].value;
+      board[i][j] = currentValue ? parseInt(currentValue, 10) : 0;
+    }
+  }
+
+  let isValid = true;
+
+  for (let i = 0; i < SIZE; i++) {
+    if (i !== col && board[row][i] === candidate) {
+      isValid = false;
+      break;
+    }
+  }
+
+  if (isValid) {
+    for (let i = 0; i < SIZE; i++) {
+      if (i !== row && board[i][col] === candidate) {
+        isValid = false;
+        break;
+      }
+    }
+  }
+
+  if (isValid) {
+    const boxRow = Math.floor(row / 3) * 3;
+    const boxCol = Math.floor(col / 3) * 3;
+    for (let r = boxRow; r < boxRow + 3; r++) {
+      for (let c = boxCol; c < boxCol + 3; c++) {
+        if ((r !== row || c !== col) && board[r][c] === candidate) {
+          isValid = false;
+          break;
+        }
+      }
+      if (!isValid) {
+        break;
+      }
+    }
+  }
+
+  input.classList.toggle('incorrect', !isValid);
+}
+
 function createBoardElement() {
   const boardDiv = document.getElementById('sudoku-board');
   boardDiv.innerHTML = '';
@@ -138,6 +217,7 @@ function createBoardElement() {
       input.addEventListener('input', (e) => {
         const val = e.target.value.replace(/[^1-9]/g, '');
         e.target.value = val;
+        updateInputValidation(e.target);
       });
       rowDiv.appendChild(input);
     }
@@ -169,6 +249,7 @@ function renderPuzzle(puz) {
 
 async function newGame() {
   currentDifficulty = document.getElementById('difficulty-select').value;
+  hintsUsed = 0;
   const res = await fetch(`/new?difficulty=${currentDifficulty}`);
   const data = await res.json();
   renderPuzzle(data.puzzle);
@@ -266,6 +347,7 @@ async function checkSolution() {
 }
 
 async function requestHint() {
+  hintsUsed += 1;
   const board = getBoardFromInputs();
   const res = await fetch('/hint', {
     method: 'POST',

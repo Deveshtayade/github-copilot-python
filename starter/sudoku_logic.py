@@ -120,26 +120,29 @@ def generate_puzzle(clues=35, difficulty=None):
         except (TypeError, ValueError) as exc:
             raise ValueError("clues must be an integer") from exc
         target_clues = max(17, min(clues, SIZE * SIZE))
-    solution = generate_completed_board()
-    puzzle = deep_copy(solution)
 
-    # Remove cells in random order but keep each removal only if the puzzle
-    # still has exactly one valid solution. This guarantees uniqueness.
-    remaining_clues = SIZE * SIZE
-    cells = list(range(SIZE * SIZE))
-    random.shuffle(cells)
+    while True:
+        solution = generate_completed_board()
+        puzzle = deep_copy(solution)
 
-    for index in cells:
-        if remaining_clues <= target_clues:
-            break
+        # Remove cells in random order while keeping the puzzle uniquely solvable.
+        # If a removal creates multiple solutions, restore it and continue.
+        remaining_clues = SIZE * SIZE
+        cells = list(range(SIZE * SIZE))
+        random.shuffle(cells)
 
-        row, col = divmod(index, SIZE)
-        original_value = puzzle[row][col]
-        puzzle[row][col] = EMPTY
+        for index in cells:
+            if remaining_clues <= target_clues:
+                break
 
-        if count_solutions(puzzle, limit=2) != 1:
-            puzzle[row][col] = original_value
-        else:
-            remaining_clues -= 1
+            row, col = divmod(index, SIZE)
+            original_value = puzzle[row][col]
+            puzzle[row][col] = EMPTY
 
-    return puzzle, solution
+            if count_solutions(puzzle, limit=2) != 1:
+                puzzle[row][col] = original_value
+            else:
+                remaining_clues -= 1
+
+        if count_solutions(puzzle, limit=2) == 1:
+            return puzzle, solution
