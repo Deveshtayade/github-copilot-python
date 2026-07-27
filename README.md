@@ -1,60 +1,89 @@
 # Refactor a Sudoku Game written in Python Flask
 
-Use this simple Sudoku game as a starting point to practice your skills with GitHub Copilot. The goal is to refactor the code to use modern technologies, while also adding new features and improving the overall user experience.
+This project is a Flask-based Sudoku game that was refactored to be more maintainable and feature-rich. It includes a generated puzzle engine, a polished web UI, and a local leaderboard.
 
 ## Getting Started
 
-Follow these instructions to get a copy of the project up and running on your local machine.
+### Prerequisites
 
-### Dependencies
+- Python 3.10+
+- A modern web browser such as Chrome, Edge, or Firefox
 
-```
-- Modern web browser (Chrome, Firefox, Edge, etc.)
-- Python 3
-```
+### Install dependencies
 
-### Installation
-
-1. Fork this repository to your GitHub account. (You can use the "Fork" button on the top right corner of the repository page.)
-
-2. Clone your forked repository to your local machine.
-
-3. Open a terminal window and navigate to the "github-copilot-python/starter" directory.
-
-4. Create a Python virtual environment and activate it (optional but highly recommended).
+1. Open a terminal in the project root.
+2. Create and activate a virtual environment.
 
 ```bash
-python3 -m venv .venv
+python -m venv .venv
+```
+
+PowerShell:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+If PowerShell blocks the script, run this once for the current terminal session:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+Bash / Git Bash / WSL:
+
+```bash
 source .venv/bin/activate
 ```
 
-5. Install required Python packages.
+3. Install the Python dependencies.
 
 ```bash
 pip install -r requirements.txt
 ```
 
-6. Run the Flask app.
+If you want to run the test suite as well, install pytest:
 
 ```bash
+pip install pytest
+```
+
+### Run the Flask application
+
+From the project root, start the app with:
+
+```bash
+cd starter
 python app.py
 ```
 
-7. Open http://127.0.0.1:5000 in your browser.
+Then open http://127.0.0.1:5000 in your browser.
 
-## Project Instructions
+### Run the tests
 
-Use GitHub Copilot to refactor the code for this game to add more advanced features. The goal is to create a more modern and maintainable codebase and add additional functionality to the final product. You can use any combination of code completion and chat features, like Ask, Edit, or Agent modes.
+Run the test suite from the project root with:
 
-- Errors should be handled gracefully with appropriate messages to the user.
-- Implement a Sudoku board generator that creates a valid Sudoku puzzle with a unique solution.
-- Add a timer to track how long it takes to solve the puzzle.
-- Implement a solution checker that verifies if the user's solution is correct using event delegation.
-- Add a difficulty selector to allow users to choose between easy, medium, and hard puzzles.
-- Add a hint feature that provides clues for the user that are noted with unique colors.
-- Add a check puzzle button that checks the current state of the board against the solution.
-- User should get immediate feedback on their input, such as highlighting invalid entries.
-- Top 10 scores should be saved in local storage and displayed on the page with the user's name, time taken, hints used, and difficulty level.
-- The game should be responsive and work well on both desktop and mobile devices.
-- UI colors should be visually appealing and accessible.
-- Completed and correct puzzles should display a congratulatory message with the time taken and hints used and ask for the user's name for Top 10 times.
+```bash
+pytest -q
+```
+
+You can also run it with:
+
+```bash
+python -m pytest -q
+```
+
+## Features
+
+The Sudoku game includes the following features:
+
+- A generated puzzle engine that creates valid boards with exactly one solution
+- Difficulty selection for easy, medium, and hard games
+- A timer that tracks how long each game takes
+- A hint system that reveals a correct value for an empty cell
+- A check button that validates the current board state
+- Immediate feedback for incorrect entries and incomplete progress
+- A Top 10 leaderboard stored in the browser using local storage
+- A dark mode toggle for a better viewing experience
+- Responsive styling that works well on desktop and mobile screens
+- A congratulatory completion flow that shows the elapsed time and prompts for a leaderboard name when appropriate

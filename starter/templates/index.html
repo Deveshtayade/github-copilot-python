@@ -9,9 +9,24 @@
   <h1>Sudoku Game</h1>
   <div id="sudoku-board"></div>
   <div class="controls">
+    <div id="timer" aria-live="polite">Time: 00:00</div>
+    <label class="difficulty-picker" for="difficulty-select">
+      Difficulty:
+      <select id="difficulty-select">
+        <option value="easy">Easy</option>
+        <option value="medium">Medium</option>
+        <option value="hard">Hard</option>
+      </select>
+    </label>
     <button id="new-game">New Game</button>
-    <button id="check-solution">Check Solution</button>
+    <button id="hint">Hint</button>
+    <button id="check-solution">Check</button>
+    <button id="theme-toggle" type="button">Dark Mode</button>
     <span id="message"></span>
+  </div>
+  <div id="leaderboard" class="leaderboard">
+    <h2>Top 10 Leaderboard</h2>
+    <ol id="leaderboard-list"></ol>
   </div>
   <script src="/static/main.js"></script>
 </body>
