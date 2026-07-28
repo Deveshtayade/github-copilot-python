@@ -3,6 +3,7 @@ const SIZE = 9;
 const LEADERBOARD_KEY = 'sudoku-leaderboard';
 const THEME_KEY = 'sudoku-theme';
 let puzzle = [];
+let solution = [];
 let timerInterval = null;
 let elapsedSeconds = 0;
 let isSolved = false;
@@ -136,69 +137,52 @@ function toggleTheme() {
   applyTheme(nextTheme);
 }
 
-function updateInputValidation(input) {
+function isCellValueCorrect(row, col, value) {
+  // This is the single source of truth for Sudoku cell correctness. Every
+  // validation path uses it so the rules stay consistent in one place.
+  const numericValue = Number(value);
+  if (!Number.isInteger(numericValue) || numericValue < 1 || numericValue > SIZE) {
+    return false;
+  }
+
+  return Array.isArray(solution) &&
+    solution[row] &&
+    typeof solution[row][col] === 'number' &&
+    numericValue === solution[row][col];
+}
+
+function updateInputValidation(input, shouldMarkEmptyAsIncorrect = false) {
   if (!input || input.disabled) {
+    // Keep locked and prefilled cells free of the temporary incorrect styling.
     input?.classList.remove('incorrect');
-    return;
+    return true;
   }
 
   const value = input.value;
   if (!value) {
-    input.classList.remove('incorrect');
-    return;
+    // Empty cells are only flagged during the explicit check action; live typing
+    // should keep them neutral until the user has entered a value.
+    if (shouldMarkEmptyAsIncorrect) {
+      input.classList.add('incorrect');
+    } else {
+      input.classList.remove('incorrect');
+    }
+    return !shouldMarkEmptyAsIncorrect;
   }
 
   const row = Number(input.dataset.row);
   const col = Number(input.dataset.col);
-  const candidate = Number(value);
-  const boardDiv = document.getElementById('sudoku-board');
-  const inputs = boardDiv.getElementsByTagName('input');
-  const board = [];
 
-  for (let i = 0; i < SIZE; i++) {
-    board[i] = [];
-    for (let j = 0; j < SIZE; j++) {
-      const idx = i * SIZE + j;
-      const currentValue = inputs[idx].value;
-      board[i][j] = currentValue ? parseInt(currentValue, 10) : 0;
-    }
+  // Reuse the shared helper so live typing and the check-button path follow the
+  // same validation rules.
+  const isCorrect = isCellValueCorrect(row, col, value);
+
+  if (!isCorrect) {
+    input.classList.add('incorrect');
+  } else {
+    input.classList.remove('incorrect');
   }
-
-  let isValid = true;
-
-  for (let i = 0; i < SIZE; i++) {
-    if (i !== col && board[row][i] === candidate) {
-      isValid = false;
-      break;
-    }
-  }
-
-  if (isValid) {
-    for (let i = 0; i < SIZE; i++) {
-      if (i !== row && board[i][col] === candidate) {
-        isValid = false;
-        break;
-      }
-    }
-  }
-
-  if (isValid) {
-    const boxRow = Math.floor(row / 3) * 3;
-    const boxCol = Math.floor(col / 3) * 3;
-    for (let r = boxRow; r < boxRow + 3; r++) {
-      for (let c = boxCol; c < boxCol + 3; c++) {
-        if ((r !== row || c !== col) && board[r][c] === candidate) {
-          isValid = false;
-          break;
-        }
-      }
-      if (!isValid) {
-        break;
-      }
-    }
-  }
-
-  input.classList.toggle('incorrect', !isValid);
+  return isCorrect;
 }
 
 function createBoardElement() {
@@ -211,12 +195,15 @@ function createBoardElement() {
       const input = document.createElement('input');
       input.type = 'text';
       input.maxLength = 1;
-      input.className = 'sudoku-cell';
+      // Prefer classList to manage classes instead of manipulating className strings
+      input.classList.add('sudoku-cell');
       input.dataset.row = i;
       input.dataset.col = j;
       input.addEventListener('input', (e) => {
         const val = e.target.value.replace(/[^1-9]/g, '');
         e.target.value = val;
+        // Validate the cell as soon as the user types so visual feedback is
+        // immediate without waiting for the check action.
         updateInputValidation(e.target);
       });
       rowDiv.appendChild(input);
@@ -225,8 +212,11 @@ function createBoardElement() {
   }
 }
 
-function renderPuzzle(puz) {
+function renderPuzzle(puz, solvedBoard = null) {
   puzzle = puz;
+  // Store the solved board so each typed value can be compared against the
+  // correct answer for that specific cell.
+  solution = Array.isArray(solvedBoard) ? solvedBoard : [];
   createBoardElement();
   const boardDiv = document.getElementById('sudoku-board');
   const inputs = boardDiv.getElementsByTagName('input');
@@ -238,10 +228,12 @@ function renderPuzzle(puz) {
       if (val !== 0) {
         inp.value = val;
         inp.disabled = true;
-        inp.className += ' prefilled';
+        // mark this cell as a prefilled (locked) clue
+        inp.classList.add('prefilled');
       } else {
         inp.value = '';
         inp.disabled = false;
+        inp.classList.remove('prefilled');
       }
     }
   }
@@ -252,7 +244,8 @@ async function newGame() {
   hintsUsed = 0;
   const res = await fetch(`/new?difficulty=${currentDifficulty}`);
   const data = await res.json();
-  renderPuzzle(data.puzzle);
+  // Reuse the newly returned solution from the server for live validation.
+  renderPuzzle(data.puzzle, data.solution);
   isSolved = false;
   startTimer();
   document.getElementById('message').innerText = '';
@@ -287,28 +280,44 @@ function applyHintToBoard(row, col, value) {
 
   input.value = value;
   input.disabled = true;
-  input.className = 'sudoku-cell prefilled hint-cell';
+  // Keep the 'sudoku-cell' base class and mark this cell as a prefilled hint.
+  input.classList.remove('incorrect');
+  input.classList.add('prefilled', 'hint-cell');
   return true;
 }
 
-function updateIncorrectHighlights(incorrectIndexes) {
+function applyValidationHighlights() {
   const boardDiv = document.getElementById('sudoku-board');
   const inputs = boardDiv.getElementsByTagName('input');
 
-  for (let idx = 0; idx < inputs.length; idx++) {
-    const input = inputs[idx];
-    if (input.disabled) {
-      continue;
-    }
+  // Walk the entire 9x9 board so the check action validates every row and
+  // column, not just the visible input list order.
+  for (let row = 0; row < SIZE; row++) {
+    for (let col = 0; col < SIZE; col++) {
+      const idx = row * SIZE + col;
+      const input = inputs[idx];
 
-    const classes = input.className
-      .split(/\s+/)
-      .filter(Boolean)
-      .filter((cls) => cls !== 'incorrect');
+      if (!input) {
+        continue;
+      }
 
-    input.className = classes.join(' ');
-    if (incorrectIndexes.has(idx)) {
-      input.className = `${input.className} incorrect`.trim();
+      // Ignore locked puzzle values while still evaluating editable cells.
+      if (input.disabled) {
+        input.classList.remove('incorrect');
+        continue;
+      }
+
+      const value = input.value;
+      const isCorrect = isCellValueCorrect(row, col, value);
+
+      // Empty editable cells and incorrect values should share the same styling,
+      // while correct values should have the highlight removed. Use classList
+      // methods to avoid string concatenation errors.
+      if (!isCorrect || value === '') {
+        input.classList.add('incorrect');
+      } else {
+        input.classList.remove('incorrect');
+      }
     }
   }
 }
@@ -327,8 +336,30 @@ async function checkSolution() {
     msg.innerText = data.error;
     return;
   }
-  const incorrect = new Set(data.incorrect.map((x) => x[0] * SIZE + x[1]));
-  updateIncorrectHighlights(incorrect);
+  // Apply the shared validation logic across every editable cell so the check
+  // action highlights empty and incorrect entries while clearing correct ones.
+  applyValidationHighlights();
+
+  const incorrect = new Set();
+  const boardDiv = document.getElementById('sudoku-board');
+  const inputs = boardDiv.getElementsByTagName('input');
+
+  // Build the incorrect-cell set by walking every row/column combination so no
+  // editable cell is skipped during the final board check.
+  for (let row = 0; row < SIZE; row++) {
+    for (let col = 0; col < SIZE; col++) {
+      const idx = row * SIZE + col;
+      const input = inputs[idx];
+
+      if (!input || input.disabled) {
+        continue;
+      }
+
+      if (!isCellValueCorrect(row, col, input.value)) {
+        incorrect.add(idx);
+      }
+    }
+  }
 
   if (incorrect.size === 0) {
     isSolved = true;

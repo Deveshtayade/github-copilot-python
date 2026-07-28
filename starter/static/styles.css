@@ -79,12 +79,33 @@ body.dark-mode .sudoku-cell.hint-cell {
     color: #8ecae6;
 }
 
+.incorrect {
+    /* Generic incorrect marker for accessibility; kept lightweight so it can
+       be applied outside the board if needed. Uses a light red background and
+       a strong red border for clear visual affordance. */
+    background-color: #ffebee;
+    border: 2px solid #d32f2f;
+    color: #000;
+}
+
+body.dark-mode .incorrect {
+    background-color: #7f1d1d;
+    border: 2px solid #ff5252;
+    color: #fff;
+}
+
 .sudoku-cell.incorrect {
-    background: #ffcdd2;
+    /* Sudoku-specific incorrect styling: noticeable red background + border.
+       Use inset box-shadow to avoid shifting cell layout when border appears. */
+    background: #ffebee;
+    border: 2px solid #d32f2f;
+    box-shadow: inset 0 0 0 1px rgba(211,47,47,0.06);
+    color: #000;
 }
 
 body.dark-mode .sudoku-cell.incorrect {
     background: #7f1d1d;
+    border: 2px solid #ff5252;
     color: #fff;
 }
 

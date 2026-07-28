@@ -51,7 +51,9 @@ def new_game():
 
     CURRENT['puzzle'] = puzzle
     CURRENT['solution'] = solution
-    return jsonify({'puzzle': puzzle})
+    # Return the solution alongside the puzzle so the client can validate
+    # each typed entry immediately without waiting for the check button.
+    return jsonify({'puzzle': puzzle, 'solution': solution})
 
 
 @app.route('/check', methods=['POST'])
